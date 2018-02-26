@@ -26,7 +26,7 @@ parseExpression = fst . head . parse equivalence
 
 data Parser a    = MParser (String -> [(a, String)]) 
 
-data Atom        = Val Bool | Var String | Not Atom deriving Show 
+data Atom        = Val Bool | Var String deriving Show 
 data Operator    = Negate | And | Or | Implication | Equivalence deriving Show
 
 type Negated     = Bool 

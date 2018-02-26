@@ -1,3 +1,5 @@
+module Parser where
+
 import Control.Monad
 import Control.Applicative
 
@@ -27,7 +29,7 @@ parseExpression = fst . head . parse equivalence
 data Parser a    = MParser (String -> [(a, String)]) 
 
 data Atom        = Val Bool | Var String deriving Show 
-data Operator    = Negate | And | Or | Implication | Equivalence deriving Show
+data Operator    = Negate | And | Or | Impl | Equiv deriving Show
 
 type Negated     = Bool 
 data MTree       = Leaf Atom | Node Operator [MTree] deriving Show
@@ -83,7 +85,7 @@ equivalence = do
         "<->" -> do 
                   pop 
                   t2 <- equivalence
-                  return $ Node Equivalence $ [t1] ++ [t2]
+                  return $ Node Equiv $ [t1] ++ [t2]
         _     -> return t1 
 
 implication :: Parser MTree 
@@ -94,7 +96,7 @@ implication = do
         "->" -> do 
                  pop 
                  t2 <- implication 
-                 return $ Node Implication $ [t1] ++ [t2]
+                 return $ Node Impl $ [t1] ++ [t2]
         _    -> return t1
 
 disjunction :: Parser MTree 

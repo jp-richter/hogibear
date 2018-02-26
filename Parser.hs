@@ -12,8 +12,8 @@ import Control.Applicative
 
     Grammar         Equivalence := Implication | Implication <-> Equivalence 
                     Implication := Disjunction | Disjunction ->  Implication 
-                    Disjunction := Conjunction | Conjunction ||  Disjunction 
-                    Conjunction := Atom        | Atom        &&  Conjunction 
+                    Disjunction := Conjunction | Conjunction |  Disjunction 
+                    Conjunction := Atom        | Atom        &  Conjunction 
                     Atom        := Boolean | Variable | (Equivalence) | ! Atom 
 -}
 

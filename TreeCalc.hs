@@ -20,11 +20,11 @@ toNNF = resolveNegation . resolveImplication . resolveEquivalence
 
 -- assumes that argument is in negation normal form
 toDNF :: MTree -> MTree 
-toDNF n = if isDNF n then associativity n; else toDNF $ distributiveOr n  
+toDNF n = if isDNF n then associativity n; else toDNF $ pullOutOr n  
 
 -- assumes that argument is in negation normal form
 toCNF :: MTree -> MTree 
-toCNF n = if isCNF n then associativity n; else toCNF $ distributiveAnd n
+toCNF n = if isCNF n then associativity n; else toCNF $ pullOutAnd n
 
 {-
     Tree Convencience Functions
@@ -59,17 +59,17 @@ isConjunction _            = False
 
 -- assumes that tree is cnf <-> tree is nnf and does not contain 'or' nodes with 
 -- 'and' children
-isCNF :: MTree -> Bool 
-isCNF (Leaf l)      = True 
-isCNF (Node And ns) = foldl (\x y -> x && (not $ isDisjunction y) && isCNF y) True ns 
-isCNF (Node _ ns)   = foldl (\x y -> x && isCNF y) True ns
+isDNF :: MTree -> Bool 
+isDNF (Leaf l)      = True 
+isDNF (Node And ns) = foldl (\x y -> x && (not $ isDisjunction y) && isDNF y) True ns 
+isDNF (Node _ ns)   = foldl (\x y -> x && isDNF y) True ns
 
 -- assumes that tree is dnf <-> tree is nnf and does not contain 'and' nodes with 
 -- 'or' children
-isDNF :: MTree -> Bool 
-isDNF (Leaf l)      = True 
-isDNF (Node Or ns)  = foldl (\x y -> x && (not $ isConjunction y) && isDNF y) True ns 
-isDNF (Node _ ns)   = foldl (\x y -> x && isDNF y) True ns
+isCNF :: MTree -> Bool 
+isCNF (Leaf l)      = True 
+isCNF (Node Or ns)  = foldl (\x y -> x && (not $ isConjunction y) && isCNF y) True ns 
+isCNF (Node _ ns)   = foldl (\x y -> x && isCNF y) True ns
 
 {-
     Tree Transforming Functions
@@ -109,10 +109,10 @@ resolveNegation (Node Negate [(Node Or ns)])      = Node And $ map (resolveNegat
 resolveNegation (Node Negate [(Node Negate [n])]) = n 
 resolveNegation n                                 = n 
    
--- assumes argument is in negation normal form
-distributiveOr :: MTree -> MTree
-distributiveOr n@(Leaf _)      = n
-distributiveOr n@(Node And ns) = 
+-- assumes argument is in negation normal form / -> dnf
+pullOutOr :: MTree -> MTree
+pullOutOr n@(Leaf _)      = n
+pullOutOr n@(Node And ns) = 
     if not $ and $ map (flip hasOperator And) ns 
         then let (Node And ns) = associativity n
                  disjunction   = head $ fst $ splitAtOp ns Or 
@@ -122,13 +122,13 @@ distributiveOr n@(Node And ns) =
                  conjunction1  = Node And $ rest ++ [toConjunct1]
                  conjunction2  = Node And $ rest ++ toConjunct2
              in Node Or [conjunction1, conjunction2]
-    else Node And $ map distributiveOr ns
-distributiveOr (Node op ns)     = Node op $ map distributiveOr ns
+    else Node And $ map pullOutOr ns
+pullOutOr (Node op ns)     = Node op $ map pullOutOr ns
 
--- assumes argument is in negation normal form
-distributiveAnd :: MTree -> MTree 
-distributiveAnd n@(Leaf _)     = n
-distributiveAnd n@(Node Or ns) = 
+-- assumes argument is in negation normal form / -> cnf
+pullOutAnd :: MTree -> MTree 
+pullOutAnd n@(Leaf _)     = n
+pullOutAnd n@(Node Or ns) = 
     if not $ or $ map (flip hasOperator Or) ns 
         then let (Node Or ns)  = associativity n
                  conjunction   = head $ fst $ splitAtOp ns And 
@@ -137,9 +137,9 @@ distributiveAnd n@(Node Or ns) =
                  toDisjunct2   = tail $ children conjunction
                  disjunction1  = Node Or $ rest ++ [toDisjunct1]
                  disjunction2  = Node Or $ rest ++ toDisjunct2
-             in Node Or [disjunction1, disjunction2]
-    else Node Or $ map distributiveAnd ns
-distributiveAnd (Node op ns)   = Node op $ map distributiveAnd ns
+             in Node And [disjunction1, disjunction2]
+    else Node Or $ map pullOutAnd ns
+pullOutAnd (Node op ns)   = Node op $ map pullOutAnd ns
 
 -- resolves redundant brackets
 associativity :: MTree -> MTree 

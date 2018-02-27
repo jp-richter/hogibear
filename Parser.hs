@@ -1,4 +1,4 @@
-module Parser ( parseExpression,
+module Parser ( parseExpr,
                 testnodes,
                 Atom(..), 
                 Operator(..), 
@@ -11,7 +11,7 @@ import Control.Applicative
 {-
     Author          Jan Richter
     Date            27.02.2018
-    Description    'parseExpression' parses strings of propositional logical expressions.
+    Description    'parseExpr' parses strings of propositional logical expressions.
                     The function generates an expression tree of the following structure:
                     Tree := Leaf Atom | Node Operator [Tree]. Negation does count as 
                     Operator and contains the single negated expression node.
@@ -32,8 +32,8 @@ import Control.Applicative
     Functions Intended For External Use
 -}
 
-parseExpression :: String -> MTree 
-parseExpression = fst . head . parse equivalence  
+parseExpr :: String -> MTree 
+parseExpr = fst . head . parse equivalence  
 
 {-
     Object & Constant Definitions
@@ -75,7 +75,9 @@ treeToString (Node Negate [n]) = "!" ++ (treeToString n)
 treeToString (Node op (n:ns))  = foldl (\x y -> 
     if isLeaf y then x ++ " " ++ (opToString op) ++ " " ++ treeToString y
     else x ++ " " ++ (opToString op) ++ " (" ++ (treeToString y) ++ ")") 
-    (treeToString n) ns
+    (f n) ns where 
+        f n = if isLeaf n then treeToString n
+              else "(" ++ (treeToString n) ++ ")"
 
 testnodes :: MTree -> String 
 testnodes (Leaf a) = atomToString a 
@@ -92,7 +94,6 @@ isLeaf :: MTree -> Bool
 isLeaf (Leaf _)          = True 
 isLeaf _                 = False
 
--- splits a string after a token
 token :: String -> (String,String) 
 token ""           = ("","")
 token (' ':xs)     = ("",xs) 

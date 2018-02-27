@@ -7,7 +7,7 @@ module MTree (MTree(..),
               hasOperator,
               isConjunction,
               isDisjunction,
-              splitAtOp)where 
+              splitAtOp) where 
 
 {-
     Author          Jan Richter

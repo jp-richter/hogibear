@@ -1,4 +1,4 @@
-module Normalforms (toNNF, toDNF, toCNF) where
+module Normalforms (toNNF, toDNF, toCNF, isHornForm, toImplicationForm) where
 
 import Prelude hiding (negate) 
 import Parser
@@ -8,24 +8,54 @@ import MTree
     Author          Jan Richter
     Date            27.02.2018
     Description     This module provides functions to transform MTrees 
-                    into Negation Normal Form, Conjunctive Normal Form 
-                    and Disjunctive Normal Form. 
+                    into normal forms.
+
+                    toNNF ~> Negative Normal Form
+                    toDNF ~> Disjunctive Normal Form
+                    toCNF ~> Conjunctive Normal Form 
+                    isHornForm ~> Checks wether the argument is a valid
+                               Horn Form 
+                    toImplicationForm ~> Implicational Form 
+
+                    All functions might produces errors when not used 
+                    under following conditions: 
+
+                    DNF requires the expression to be in NNF.
+                    CNF requires the expression to be in NNF.
+                    isHorn requires the expression to be in CNF.
+                    implicF requires the expression to be in CNF.
 -}
 
 {-
     Functions Intended For External Use
+
+    TODO alle fehler durch maybes ersetzen?
+
+    Problem: Klammern / Negationen insb in Kombination werden nicht richtig
+    erkannt, negationsauflösung funktioniert (demorgan)
 -}
 
 toNNF :: MTree -> MTree 
-toNNF = resolveNegation . resolveImplication . resolveEquivalence
+toNNF = dissolveNegation . dissolveImplication . dissolveEquivalence
 
--- assumes that argument is in negation normal form
 toDNF :: MTree -> MTree 
 toDNF n = if isDNF n then associativity n; else toDNF $ pullOutOr n  
 
--- assumes that argument is in negation normal form
 toCNF :: MTree -> MTree 
 toCNF n = if isCNF n then associativity n; else toCNF $ pullOutAnd n
+
+isHornForm :: MTree -> Bool
+isHornForm (Node And ns) = maximum (map f ns) <= 1 where 
+    f (Leaf (Val False)) = 0
+    f (Node Negate n)    = 0
+    f (Leaf (Val True))  = 1
+    f (Leaf (Var _))     = 1
+    f (Node Or (n:ns))   = (f n) + (f (Node Or ns))
+    f _                  = 2
+isHornForm _             = False
+
+toImplicationForm :: MTree -> MTree 
+toImplicationForm (Node And ns) = Node And $ map toImplication ns
 
 {-
     Convencience Functions
@@ -55,36 +85,36 @@ negate (Node Negate [n@(Leaf _)])   = n
 negate (Node Negate [n@(Node _ _)]) = n
 negate n@(Node _ _)                 = Node Negate [n] 
  
-resolveEquivalence :: MTree -> MTree 
-resolveEquivalence n@(Leaf _)            = n 
-resolveEquivalence (Node Equiv (n:m:[])) = 
+dissolveEquivalence :: MTree -> MTree 
+dissolveEquivalence n@(Leaf _)            = n 
+dissolveEquivalence (Node Equiv (n:m:[])) = 
     let left = Node Impl [n,m]
         right = Node Impl [m,n]
     in  Node And [left, right]
-resolveEquivalence (Node Equiv ns)       = 
+dissolveEquivalence (Node Equiv ns)       = 
     let n = head ns 
         m = Node Equiv $ tail ns
         left = Node Impl [n,m]
         right = Node Impl [m,n]
-        left' = resolveEquivalence left 
-        right' = resolveEquivalence right
+        left' = dissolveEquivalence left 
+        right' = dissolveEquivalence right
     in  Node And [left', right'] 
-resolveEquivalence (Node op ns)          = 
-    Node op $ map resolveEquivalence ns
+dissolveEquivalence (Node op ns)          = 
+    Node op $ map dissolveEquivalence ns
 
-resolveImplication :: MTree -> MTree 
-resolveImplication n@(Leaf _)     = n 
-resolveImplication (Node Impl ns) = Node Or $ f [] ns where 
+dissolveImplication :: MTree -> MTree 
+dissolveImplication n@(Leaf _)     = n 
+dissolveImplication (Node Impl ns) = Node Or $ f [] ns where 
     f xs [y]     = xs ++ [y]
-    f xs (y:ys) = f (map negate $ xs ++ [y]) ys 
-resolveImplication (Node op ns)   = Node op $ map resolveImplication ns 
+    f xs (y:ys)  = f (map negate $ xs ++ [y]) ys 
+dissolveImplication (Node op ns)   = Node op $ map dissolveImplication ns 
 
 -- assumes argument does not contain equivalences & implications
-resolveNegation :: MTree -> MTree 
-resolveNegation (Node Negate [(Node And ns)])     = Node Or $ map (resolveNegation . negate) ns
-resolveNegation (Node Negate [(Node Or ns)])      = Node And $ map (resolveNegation . negate) ns 
-resolveNegation (Node Negate [(Node Negate [n])]) = n 
-resolveNegation n                                 = n 
+dissolveNegation :: MTree -> MTree 
+dissolveNegation (Node Negate [(Node And ns)])     = Node Or $ map (dissolveNegation . negate) ns
+dissolveNegation (Node Negate [(Node Or ns)])      = Node And $ map (dissolveNegation . negate) ns 
+dissolveNegation (Node Negate [(Node Negate [n])]) = n 
+dissolveNegation n                                 = n 
    
 -- assumes argument is in negation normal form / -> dnf
 pullOutOr :: MTree -> MTree
@@ -118,10 +148,33 @@ pullOutAnd n@(Node Or ns) =
     else Node Or $ map pullOutAnd ns
 pullOutAnd (Node op ns)   = Node op $ map pullOutAnd ns
 
--- resolves redundant brackets
+-- dissolves redundant brackets
 associativity :: MTree -> MTree 
 associativity n@(Leaf _)       = n 
 associativity (Node op (n:ns)) = 
     if hasOperator n op 
         then associativity (Node op $ ns ++ (children n))
     else Node op $ n:(map associativity ns)
+
+toImplication :: MTree -> MTree 
+toImplication (Node Or ns) = 
+    let premise   = if (length $ allNegatives ns) == 0 
+                        then Leaf (Val True); 
+                    else Node And $ allNegatives ns 
+        conclusio = if (length $ allPositives ns) == 0 
+                        then Leaf (Val False); 
+                    else Node And $ allPositives ns 
+    in Node Impl [premise, conclusio]
+
+allNegatives :: [MTree] -> [MTree]
+allNegatives = filter (not . isPositive)
+
+allPositives :: [MTree] -> [MTree]
+allPositives = filter isPositive
+
+-- assumes argument does not have child operators
+isPositive :: MTree -> Bool 
+isPositive (Leaf (Val True))  = True 
+isPositive (Leaf (Val False)) = False 
+isPositive (Leaf _ )          = True
+isPositive (Node Negate [n])  = not $ isPositive n 

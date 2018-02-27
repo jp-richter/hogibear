@@ -1,3 +1,5 @@
+module TreeCalc (toNNF, toDNF, toCNF) where
+
 import Prelude hiding (negate) 
 import Parser
 
@@ -17,8 +19,12 @@ toNNF :: MTree -> MTree
 toNNF = resolveNegation . resolveImplication . resolveEquivalence
 
 -- assumes that argument is in negation normal form
+toDNF :: MTree -> MTree 
+toDNF n = if isDNF n then associativity n; else toDNF $ distributiveOr n  
+
+-- assumes that argument is in negation normal form
 toCNF :: MTree -> MTree 
-toCNF n = if isCNF n then n; else toCNF $ distributiveOr n  
+toCNF n = if isCNF n then associativity n; else toCNF $ distributiveAnd n
 
 {-
     Tree Convencience Functions
@@ -43,13 +49,6 @@ splitAtOp (n:ns) op = case n of
       | otherwise        -> (fst $ splitAtOp ns op
                             , n:(snd $ splitAtOp ns op))
 
--- assumes that tree is cnf <-> tree is nnf and does not contain 'and' nodes with 
--- 'or' children
-isCNF :: MTree -> Bool 
-isCNF (Leaf l)      = True 
-isCNF (Node And ns) = foldl (\x y -> x && (not $ isDisjunction y) && isCNF y) True ns 
-isCNF (Node _ ns)   = foldl (\x y -> x && isCNF y) True ns
-
 isDisjunction :: MTree -> Bool 
 isDisjunction (Node Or _) = True 
 isDisjunction _           = False
@@ -57,6 +56,20 @@ isDisjunction _           = False
 isConjunction :: MTree -> Bool
 isConjunction (Node And _) = True 
 isConjunction _            = False
+
+-- assumes that tree is cnf <-> tree is nnf and does not contain 'or' nodes with 
+-- 'and' children
+isCNF :: MTree -> Bool 
+isCNF (Leaf l)      = True 
+isCNF (Node And ns) = foldl (\x y -> x && (not $ isDisjunction y) && isCNF y) True ns 
+isCNF (Node _ ns)   = foldl (\x y -> x && isCNF y) True ns
+
+-- assumes that tree is dnf <-> tree is nnf and does not contain 'and' nodes with 
+-- 'or' children
+isDNF :: MTree -> Bool 
+isDNF (Leaf l)      = True 
+isDNF (Node Or ns)  = foldl (\x y -> x && (not $ isConjunction y) && isDNF y) True ns 
+isDNF (Node _ ns)   = foldl (\x y -> x && isDNF y) True ns
 
 {-
     Tree Transforming Functions
@@ -69,19 +82,24 @@ negate (Node Negate [n@(Node _ _)]) = n
 negate n@(Node _ _)                 = Node Negate [n] 
  
 resolveEquivalence :: MTree -> MTree 
-resolveEquivalence n@(Leaf _)      = n 
-resolveEquivalence (Node Equiv ns) = let impl1 = Node Impl [head ns, tail ns]
-                                         impl2 = Node Impl [tail ns, head ns]
-                                         impl1 = resolveEquivalence impl1 
-                                         impl2 = resolveEquivalence impl2
-                                     in  Node And [impl1, impl2] 
-resolveEquivalence (Node op ns)    = Node op $ map equivalences ns
+resolveEquivalence n@(Leaf _)            = n 
+resolveEquivalence (Node Equiv (n:m:[])) = let left = Node Impl [n,m]
+                                               right = Node Impl [m,n]
+                                           in  Node And [left, right]
+resolveEquivalence (Node Equiv ns)       = let n = head ns 
+                                               m = Node Equiv $ tail ns
+                                               left = Node Impl [n,m]
+                                               right = Node Impl [m,n]
+                                               left' = resolveEquivalence left 
+                                               right' = resolveEquivalence right
+                                           in  Node And [left', right'] 
+resolveEquivalence (Node op ns)          = Node op $ map resolveEquivalence ns
 
 resolveImplication :: MTree -> MTree 
 resolveImplication n@(Leaf _)     = n 
 resolveImplication (Node Impl ns) = Node Or $ f [] ns where 
-                                        f xs []     = xs
-                                        f xs (y:ys) = f (map negate $ y:xs) ys 
+                                        f xs [y]     = xs ++ [y]
+                                        f xs (y:ys) = f (map negate $ xs ++ [y]) ys 
 resolveImplication (Node op ns)   = Node op $ map resolveImplication ns 
 
 -- assumes argument does not contain equivalences & implications

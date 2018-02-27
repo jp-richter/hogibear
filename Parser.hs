@@ -1,4 +1,5 @@
-module Parser ( parseExpression, 
+module Parser ( parseExpression,
+                testnodes,
                 Atom(..), 
                 Operator(..), 
                 MTree(..)) 
@@ -44,11 +45,61 @@ parseExpression = fst . head . parse equivalence
 
 data Parser a    = MParser (String -> [(a, String)]) 
 
-data Atom        = Val Bool | Var String deriving Show 
-data Operator    = Negate | And | Or | Impl | Equiv deriving (Show,Eq)
+data Atom        = Val Bool | Var String 
+data Operator    = Negate | And | Or | Impl | Equiv deriving (Eq)
 
-data MTree       = Leaf Atom | Node Operator [MTree] deriving Show
+data MTree       = Leaf Atom | Node Operator [MTree]
 
+{-
+    Tree Visualization
+-}
+
+instance Show MTree where
+    show t = show $ treeToString t
+
+atomToString :: Atom -> String 
+atomToString (Val True)  = "True"
+atomToString (Val False) = "False"
+atomToString (Var s)     = s
+
+opToString :: Operator -> String 
+opToString Negate = "!"
+opToString And    = "&"
+opToString Or     = "|"
+opToString Impl   = "->"
+opToString Equiv  = "<->"
+
+treeToString :: MTree -> String 
+treeToString (Leaf a)          = atomToString a 
+treeToString (Node Negate [n]) = "!" ++ (treeToString n) 
+treeToString (Node op (n:ns))  = foldl (\x y -> 
+    if isLeaf y then x ++ " " ++ (opToString op) ++ " " ++ treeToString y
+    else x ++ " " ++ (opToString op) ++ " (" ++ (treeToString y) ++ ")") 
+    (treeToString n) ns
+
+testnodes :: MTree -> String 
+testnodes (Leaf a) = atomToString a 
+testnodes (Node op ns) = 
+    opToString op ++ " (" ++ 
+    (foldl (\x y -> x ++ " ," ++ testnodes y) "" ns) 
+    ++ ")"
+
+{-
+    Convenience Functions
+-}
+
+isLeaf :: MTree -> Bool 
+isLeaf (Leaf _)          = True 
+isLeaf _                 = False
+
+-- splits a string after a token
+token :: String -> (String,String) 
+token ""           = ("","")
+token (' ':xs)     = ("",xs) 
+token ('!':xs)     = ("!",xs)
+token ('(':xs)     = ("(",xs)
+token (')':xs)     = ("",')':xs)
+token (x:xs)       = (,) ([x] ++ (fst $ token xs)) (snd $ token xs)
 
 {-
     Monadic Parser Instance Definitions
@@ -78,25 +129,11 @@ instance MonadPlus Parser where
     mplus p q = MParser $ \s -> (parse p s) ++ (parse q s)
 
 {-
-    Parser Wrapper Functions
+    General Parser Functions
 -}
 
 parse :: Parser a -> String -> [(a,String)]
 parse (MParser p) = p 
-
-{-
-    General Parser Functions
--}
-
--- 'token' takes a string, splits it at the first occurence of whitespace, 
--- brackets or negations and returns (next token, rest string).
-
-token :: String -> (String,String) 
-token ""       = ("","")
-token (' ':xs) = ("",xs) 
-token ('!':xs) = ("!",xs)
-token ('(':xs) = ("(",xs)
-token (x:xs)   = (,) ([x] ++ (fst $ token xs)) (snd $ token xs)
 
 peek :: Parser String
 peek = MParser $ \s -> [(fst $ token s,s)]

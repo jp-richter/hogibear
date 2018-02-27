@@ -83,23 +83,26 @@ negate n@(Node _ _)                 = Node Negate [n]
  
 resolveEquivalence :: MTree -> MTree 
 resolveEquivalence n@(Leaf _)            = n 
-resolveEquivalence (Node Equiv (n:m:[])) = let left = Node Impl [n,m]
-                                               right = Node Impl [m,n]
-                                           in  Node And [left, right]
-resolveEquivalence (Node Equiv ns)       = let n = head ns 
-                                               m = Node Equiv $ tail ns
-                                               left = Node Impl [n,m]
-                                               right = Node Impl [m,n]
-                                               left' = resolveEquivalence left 
-                                               right' = resolveEquivalence right
-                                           in  Node And [left', right'] 
-resolveEquivalence (Node op ns)          = Node op $ map resolveEquivalence ns
+resolveEquivalence (Node Equiv (n:m:[])) = 
+    let left = Node Impl [n,m]
+        right = Node Impl [m,n]
+    in  Node And [left, right]
+resolveEquivalence (Node Equiv ns)       = 
+    let n = head ns 
+        m = Node Equiv $ tail ns
+        left = Node Impl [n,m]
+        right = Node Impl [m,n]
+        left' = resolveEquivalence left 
+        right' = resolveEquivalence right
+    in  Node And [left', right'] 
+resolveEquivalence (Node op ns)          = 
+    Node op $ map resolveEquivalence ns
 
 resolveImplication :: MTree -> MTree 
 resolveImplication n@(Leaf _)     = n 
 resolveImplication (Node Impl ns) = Node Or $ f [] ns where 
-                                        f xs [y]     = xs ++ [y]
-                                        f xs (y:ys) = f (map negate $ xs ++ [y]) ys 
+    f xs [y]     = xs ++ [y]
+    f xs (y:ys) = f (map negate $ xs ++ [y]) ys 
 resolveImplication (Node op ns)   = Node op $ map resolveImplication ns 
 
 -- assumes argument does not contain equivalences & implications

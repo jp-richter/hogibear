@@ -29,7 +29,7 @@ parseExpression = fst . head . parse equivalence
 data Parser a    = MParser (String -> [(a, String)]) 
 
 data Atom        = Val Bool | Var String deriving Show 
-data Operator    = Negate | And | Or | Impl | Equiv deriving Show
+data Operator    = Negate | And | Or | Impl | Equiv deriving (Show,Eq)
 
 type Negated     = Bool 
 data MTree       = Leaf Atom | Node Operator [MTree] deriving Show

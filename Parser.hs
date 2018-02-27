@@ -1,16 +1,24 @@
-module Parser where
+module Parser ( parseExpression, 
+                Atom(..), 
+                Operator(..), 
+                MTree(..)) 
+                where
 
 import Control.Monad
 import Control.Applicative
 
 {-
-    Functionality   'parseExpression' parses a given input string and generates 
-                    a tree with following structure: 
-                    Tree := Leaf Atom | Node Negated Operator [Tree]
+    Author          Jan Richter
+    Date            27.02.2018
+    Description    'parseExpression' parses strings of propositional logical expressions.
+                    The function generates an expression tree of the following structure:
+                    Tree := Leaf Atom | Node Operator [Tree]. Negation does count as 
+                    Operator and contains the single negated expression node.
 
-    Assumptions     All tokens are separated by whitespace (not necessary for brackets)
-                    Variables start with a letter
-                    Boolean values are defined with "0", "1"
+    Input           All tokens have to be separated by whitespace, with the exception of 
+    Restrictions    brackets. Variables have to start with a letter, but can be of any 
+                    length and can contain numbers. Contradictions and tautologies are 
+                    defined by "0" and "1". 
 
     Grammar         Equivalence := Implication | Implication <-> Equivalence 
                     Implication := Disjunction | Disjunction ->  Implication 
@@ -19,30 +27,44 @@ import Control.Applicative
                     Atom        := Boolean | Variable | (Equivalence) | ! Atom 
 -}
 
--- Functions intended for external use 
+{-
+    Functions Intended For External Use
+-}
 
 parseExpression :: String -> MTree 
 parseExpression = fst . head . parse equivalence  
 
--- Object & Constant Definitions
+{-
+    Object & Constant Definitions
+
+    The parsing function of Parser Objects should generate empty lists if the parser 
+    does not succeed. If the parsing function is non-deterministic the function yields 
+    all possible results.
+-}
 
 data Parser a    = MParser (String -> [(a, String)]) 
 
 data Atom        = Val Bool | Var String deriving Show 
 data Operator    = Negate | And | Or | Impl | Equiv deriving (Show,Eq)
 
-type Negated     = Bool 
 data MTree       = Leaf Atom | Node Operator [MTree] deriving Show
 
--- Monadic Parser Instance Definitions
+
+{-
+    Monadic Parser Instance Definitions
+-}
  
 instance Monad Parser where 
     return a = MParser $ \s -> [(a,s)] 
-    p >>= f  = MParser $ \s -> [(a,r) | (a',s') <- parse p s, (a,r) <- parse (f a') s']
+    p >>= f  = MParser $ \s -> [(a,r) | 
+        (a',s') <- parse p s, 
+        (a,r)   <- parse (f a') s']
 
 instance Applicative Parser where 
     pure a   = MParser $ \s -> [(a,s)]
-    f <*> p  = MParser $ \s -> [(g a,r) | g <- [ a' | (a',s') <- parse f s], (a,r) <- parse p s]
+    f <*> p  = MParser $ \s -> [(g a,r) | 
+        g     <- [ a' | (a',s') <- parse f s], 
+        (a,r) <- parse p s]
 
 instance Functor Parser where 
     fmap f p = MParser $ \s -> [(f a,r) | (a,r) <- parse p s] 
@@ -55,12 +77,19 @@ instance MonadPlus Parser where
     mzero     = MParser $ \s -> []
     mplus p q = MParser $ \s -> (parse p s) ++ (parse q s)
 
--- Parser Wrapper Functions
+{-
+    Parser Wrapper Functions
+-}
 
 parse :: Parser a -> String -> [(a,String)]
 parse (MParser p) = p 
 
--- General Parser Functions
+{-
+    General Parser Functions
+-}
+
+-- 'token' takes a string, splits it at the first occurence of whitespace, 
+-- brackets or negations and returns (next token, rest string).
 
 token :: String -> (String,String) 
 token ""       = ("","")
@@ -75,7 +104,10 @@ peek = MParser $ \s -> [(fst $ token s,s)]
 pop :: Parser () 
 pop = MParser $ \s -> [((), snd $ token s)]
 
--- Tree Generating Parser Functions
+{-
+    Tree Generating Parser Functions
+    (correspond to the grammar specified in the module description)
+-}
 
 equivalence :: Parser MTree 
 equivalence = do 

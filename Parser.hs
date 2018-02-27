@@ -1,12 +1,8 @@
-module Parser ( parseExpr,
-                testnodes,
-                Atom(..), 
-                Operator(..), 
-                MTree(..)) 
-                where
+module Parser (parseExpr) where
 
 import Control.Monad
 import Control.Applicative
+import MTree
 
 {-
     Author          Jan Richter
@@ -44,67 +40,6 @@ parseExpr = fst . head . parse equivalence
 -}
 
 data Parser a    = MParser (String -> [(a, String)]) 
-
-data Atom        = Val Bool | Var String 
-data Operator    = Negate | And | Or | Impl | Equiv deriving (Eq)
-
-data MTree       = Leaf Atom | Node Operator [MTree]
-
-{-
-    Tree Visualization
--}
-
-instance Show MTree where
-    show t = show $ treeToString t
-
-atomToString :: Atom -> String 
-atomToString (Val True)  = "True"
-atomToString (Val False) = "False"
-atomToString (Var s)     = s
-
-opToString :: Operator -> String 
-opToString Negate = "!"
-opToString And    = "&"
-opToString Or     = "|"
-opToString Impl   = "->"
-opToString Equiv  = "<->"
-
-treeToString :: MTree -> String 
-treeToString (Leaf a)          = atomToString a 
-treeToString (Node Negate [n]) = "!" ++ (treeToString n) 
-treeToString (Node op (n:ns))  = foldl (\x y -> 
-    if isLeaf y then x ++ " " ++ (opToString op) ++ " " ++ treeToString y
-    else x ++ " " ++ (opToString op) ++ " (" ++ (treeToString y) ++ ")") 
-    (f n) ns where 
-        f n = if isLeaf n then treeToString n
-              else "(" ++ (treeToString n) ++ ")"
-
-testnodes :: MTree -> String 
-testnodes (Leaf a) = atomToString a 
-testnodes (Node op ns) = 
-    opToString op ++ " (" ++ 
-    (foldl (\x y -> x ++ " ," ++ testnodes y) "" ns) 
-    ++ ")"
-
-{-
-    Convenience Functions
--}
-
-isLeaf :: MTree -> Bool 
-isLeaf (Leaf _)          = True 
-isLeaf _                 = False
-
-token :: String -> (String,String) 
-token ""           = ("","")
-token (' ':xs)     = ("",xs) 
-token ('!':xs)     = ("!",xs)
-token ('(':xs)     = ("(",xs)
-token (')':xs)     = ("",')':xs)
-token (x:xs)       = (,) ([x] ++ (fst $ token xs)) (snd $ token xs)
-
-{-
-    Monadic Parser Instance Definitions
--}
  
 instance Monad Parser where 
     return a = MParser $ \s -> [(a,s)] 
@@ -132,6 +67,14 @@ instance MonadPlus Parser where
 {-
     General Parser Functions
 -}
+
+token :: String -> (String,String) 
+token ""           = ("","")
+token (' ':xs)     = ("",xs) 
+token ('!':xs)     = ("!",xs)
+token ('(':xs)     = ("(",xs)
+token (')':xs)     = ("",')':xs)
+token (x:xs)       = (,) ([x] ++ (fst $ token xs)) (snd $ token xs)
 
 parse :: Parser a -> String -> [(a,String)]
 parse (MParser p) = p 

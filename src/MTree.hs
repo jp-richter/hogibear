@@ -1,5 +1,5 @@
 module MTree (Atom(..), Operator(..), MTree(..), children, hasOp, isLeaf, 
-    hasOnlyLeaf, isOr, isAnd, splitAtOp) where 
+    hasOnlyLeaf, isOr, isAnd, splitAtOp, depth) where 
 
 {-
     Author          Jan Richter
@@ -7,6 +7,9 @@ module MTree (Atom(..), Operator(..), MTree(..), children, hasOp, isLeaf,
     Description     This module provides a tree for propositional logic 
                     expressions, with simple functions to manipulate and 
                     read its nodes. 
+
+                    Negation does count as Operator and generates its own 
+                    node. Unlike 'isLeaf' 'hasOnlyLeafs' allows negated leafs.
 -}
 
 {-
@@ -52,6 +55,12 @@ isOr _           = False
 isAnd :: MTree -> Bool
 isAnd (Node And _) = True 
 isAnd _            = False
+
+depth :: MTree -> Int 
+depth (Leaf _) = 1 
+depth n@(Node _ ns) 
+    | hasOnlyLeaf n = 1 
+    | otherwise = (+) 1 $ maximum $ map depth ns
 
 {-
     Tree Visualization

@@ -14,12 +14,15 @@ hornSatisfiable = (markAlg []) . toImplicationForm
 
 markAlg :: [String] -> MTree -> [String] 
 markAlg vs n@(Node And ns) 
-    | ((toMark vs n) == []) && (not $ contradicts vs n) = vs
-    | otherwise                                         = markAlg (vs ++ (toMark vs n)) n
-markAlg _ _                                             = []
+    | ((toMark vs n) == []) 
+      && (not $ contradicts vs n) = vs
+    | otherwise = markAlg (vs ++ (toMark vs n)) n
+markAlg _ _     = []
 
 toMark :: [String] -> MTree -> [String] 
-toMark vs (Node Impl [m,n]) = if isTrueOrMarked vs m then removeList (getVariables n) vs; else []
+toMark vs (Node Impl [m,n]) 
+    | isTrueOrMarked vs m   = removeList (getVariables n) vs 
+    | otherwise             = []
 toMark vs (Node And ns)     = concatMap (toMark vs) ns 
 toMark _ _                  = []
 

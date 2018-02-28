@@ -98,7 +98,9 @@ equivalence = do
         "<->" -> do 
                   pop 
                   t2 <- equivalence
-                  return $ Node Equiv $ [t1] ++ [t2]
+                  case t2 of 
+                    (Node Equiv ns) -> return $ Node Equiv $ t1:ns 
+                    _               -> return $ Node Equiv $ [t1, t2]
         _     -> return t1 
 
 implication :: Parser MTree 
@@ -109,7 +111,9 @@ implication = do
         "->" -> do 
                  pop 
                  t2 <- implication 
-                 return $ Node Impl $ [t1] ++ [t2]
+                 case t2 of 
+                    (Node Impl ns) -> return $ Node Impl $ t1:ns 
+                    _              -> return $ Node Impl $ [t1, t2]
         _    -> return t1
 
 disjunction :: Parser MTree 
@@ -120,7 +124,9 @@ disjunction = do
         "|" -> do 
                 pop 
                 t2 <- disjunction
-                return $ Node Or $ [t1] ++ [t2]
+                case t2 of 
+                    (Node Or ns) -> return $ Node Or $ t1:ns 
+                    _            -> return $ Node Or $ [t1, t2]
         _   -> return t1 
 
 conjunction :: Parser MTree 
@@ -131,7 +137,9 @@ conjunction = do
         "&" -> do  
                 pop
                 t2 <- conjunction 
-                return $ Node And $ [t1] ++ [t2]
+                case t2 of 
+                    (Node And ns) -> return $ Node And $ t1:ns
+                    _             -> return $ Node And $ [t1, t2]
         _   -> return t1 
 
 

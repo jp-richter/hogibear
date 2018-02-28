@@ -8,8 +8,6 @@ import MTree
     Date            27.02.2018
     Description     This module provides functions to transform MTrees into 
                     normal forms. 
-
-    TODO aussagenlogik abstrahieren
 -}
 
 {-
@@ -43,12 +41,15 @@ isHornForm (Node And ns) = maximum (map f ns) <= 1 where
     f (Leaf (Val True))  = 1
     f (Leaf (Var _))     = 1
     f (Node Or (n:ns))   = (f n) + (f (Node Or ns))
-    f _                  = 2
+    f (Node Impl [m,n])  = length $ children n
+    f _                  = 2 -- not valid
 isHornForm _             = False
 
 toImplicationForm :: MTree -> MTree
-toImplicationForm (Node And ns) = Node And $ map ressolveImplication ns
---toImplicationForm n             = toImplicationForm $ toCNF $ toNNF n
+toImplicationForm = toImplicationForm' . dissolveBrackets . toCNF . toNNF where 
+    toImplicationForm' (Node And ns)  = Node And $ map ressolveImplication ns
+    toImplicationForm' n@(Node Or ns) = ressolveImplication n
+    toImplicationForm' n              = n 
 
 {-
     Convencience Functions
@@ -73,18 +74,20 @@ isCNF (Node And ns)    = and $ map isCNF ns
 isCNF (Node Negate ns) = and $ map isCNF ns 
 isCNF (Node _ _)       = False
 
-allNegatives :: [MTree] -> [MTree]
-allNegatives = filter (not . isPositive)
+-- assumes that list has (negated) leafs only
+negativeLeafs :: [MTree] -> [MTree]
+negativeLeafs = filter (not . positiveLeaf)
 
-allPositives :: [MTree] -> [MTree]
-allPositives = filter isPositive
+-- assumes that list has (negated) leafs only
+positiveLeafs :: [MTree] -> [MTree]
+positiveLeafs = filter positiveLeaf
 
--- assumes argument does not have child operators
-isPositive :: MTree -> Bool 
-isPositive (Leaf (Val True))  = True 
-isPositive (Leaf (Val False)) = False 
-isPositive (Leaf _ )          = True
-isPositive (Node Negate [n])  = not $ isPositive n 
+-- assumes argument is (negated) leaf
+positiveLeaf :: MTree -> Bool 
+positiveLeaf (Leaf (Val True))  = True 
+positiveLeaf (Leaf (Val False)) = False 
+positiveLeaf (Leaf _ )          = True
+positiveLeaf (Node Negate [n])  = not $ positiveLeaf n 
 
 {-
     Tree Transforming Functions
@@ -131,12 +134,12 @@ dissolveNegation n                                 = n
 
 ressolveImplication :: MTree -> MTree 
 ressolveImplication (Node Or ns) = 
-    let premise   = if (length $ allNegatives ns) == 0 
+    let premise   = if (length $ negativeLeafs ns) == 0 
                         then Leaf (Val True); 
-                    else Node And $ map negate $ allNegatives ns
-        conclusio = if (length $ allPositives ns) == 0 
+                    else Node And $ map negate $ negativeLeafs ns
+        conclusio = if (length $ positiveLeafs ns) == 0 
                         then Leaf (Val False); 
-                    else Node And $ allPositives ns 
+                    else Node And $ positiveLeafs ns 
     in Node Impl [premise, conclusio]
    
 -- assumes argument is in negation normal form / -> dnf

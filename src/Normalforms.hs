@@ -7,10 +7,10 @@ import MTree
 {-
     Author          Jan Richter
     Date            27.02.2018
-    Description     This module provides functions to transform MTrees into normal forms. 
-                    NNF: Negation Normal Form
-                    CNF: Conjunctive Normal Form
-                    DNF: Disjunctive Normal Form
+    Description     This module provides functions to transform MTrees into 
+                    normal forms. 
+
+    TODO alles überarbeiten und lesbarer machen; von aussagenlogik abstrahieren
 -}
 
 {-
@@ -21,10 +21,14 @@ toNNF :: MTree -> MTree
 toNNF = dissolveNegation . dissolveImplication . dissolveEquivalence
 
 toDNF :: MTree -> MTree 
-toDNF n = if isDNF n then n; else if isNNF n then toDNF $ pullOutOr n; else toDNF $ toNNF n 
+toDNF n = if isDNF n then n; 
+    else if isNNF n then toDNF $ pullOutOr n; 
+    else toDNF $ toNNF n 
 
 toCNF :: MTree -> MTree 
-toCNF n = if isCNF n then n; else if isNNF n then toCNF $ pullOutAnd n; else toCNF $ toNNF n
+toCNF n = if isCNF n then n; 
+    else if isNNF n then toCNF $ pullOutAnd n; 
+    else toCNF $ toNNF n
 
 isHornForm :: MTree -> Bool
 isHornForm (Node And ns) = maximum (map f ns) <= 1 where 
@@ -108,11 +112,14 @@ dissolveImplication (Node op ns)   = Node op $ map dissolveImplication ns
 
 -- assumes argument does not contain equivalences & implications
 dissolveNegation :: MTree -> MTree 
-dissolveNegation (Node Negate [(Node And ns)])     = Node Or $ map (dissolveNegation . negate) ns
-dissolveNegation (Node Negate [(Node Or ns)])      = Node And $ map (dissolveNegation . negate) ns 
+dissolveNegation (Node Negate [(Node And ns)])     = 
+    Node Or $ map (dissolveNegation . negate) ns
+dissolveNegation (Node Negate [(Node Or ns)])      = 
+    Node And $ map (dissolveNegation . negate) ns 
 dissolveNegation (Node Negate [(Node Negate [n])]) = n 
 dissolveNegation n                                 = n 
 
+-- falsch! hier wird die implikationsregel nicht beachtet
 ressolveImplication :: MTree -> MTree 
 ressolveImplication (Node Or ns) = 
     let premise   = if (length $ allNegatives ns) == 0 

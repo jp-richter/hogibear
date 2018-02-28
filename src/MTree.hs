@@ -21,7 +21,7 @@ module MTree (MTree(..),
     Tree Definitions
 -}
 
-data Atom        = Val Bool | Var String 
+data Atom        = Val Bool | Var String deriving (Eq)
 data Operator    = Negate | And | Or | Impl | Equiv deriving (Eq)
 
 data MTree       = Leaf Atom | Node Operator [MTree]

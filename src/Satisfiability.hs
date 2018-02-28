@@ -3,13 +3,25 @@ module Satisfiability where
 import Normalforms
 import MTree
 
+{-
+    Author          Jan Richter
+    Date            27.02.2018
+    Description     This module provides methods to test if a given
+                    logical expression is satisfiable. 
+-}
+
+{-
+    Functions Intended For External Use
+-}
+
+-- empty -> not satisfiable; [a,b,c] -> a b c = 1 else 0
 hornSatisfiable :: MTree -> [String]
 hornSatisfiable = (markAlg []) . toImplicationForm
 
 --renamableHornSat :: MTree -> [(String, String)] 
 
 {-
-    Horn Satisiability Algorithm
+    Horn Satisfiability Algorithm
 -}
 
 markAlg :: [String] -> MTree -> [String] 
@@ -17,7 +29,8 @@ markAlg vs n@(Node And ns)
     | ((toMark vs n) == []) 
       && (not $ contradicts vs n) = vs
     | otherwise = markAlg (vs ++ (toMark vs n)) n
-markAlg _ _     = []
+markAlg _ n@(Node Impl [_,_]) = toMark [] n
+markAlg _ _                   = []
 
 toMark :: [String] -> MTree -> [String] 
 toMark vs (Node Impl [m,n]) 

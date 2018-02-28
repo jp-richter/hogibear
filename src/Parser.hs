@@ -73,7 +73,7 @@ token ""           = ("","")
 token (' ':xs)     = ("",xs) 
 token ('!':xs)     = ("!",xs)
 token ('(':xs)     = ("(",xs)
-token (')':xs)     = ("",')':xs)
+token (')':xs)     = ("",xs)
 token (x:xs)       = (,) ([x] ++ (fst $ token xs)) (snd $ token xs)
 
 parse :: Parser a -> String -> [(a,String)]
@@ -152,7 +152,7 @@ atom = do
                 atom
         "(" -> do 
                 t <- equivalence
-                pop 
+                pop
                 return t 
         "!" -> do 
                 t <- atom

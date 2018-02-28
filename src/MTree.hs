@@ -21,7 +21,7 @@ module MTree (MTree(..),
     Tree Definitions
 -}
 
-data Atom        = Val Bool | Var String deriving (Eq)
+data Atom        = Val Bool | Var String
 data Operator    = Negate | And | Or | Impl | Equiv deriving (Eq)
 
 data MTree       = Leaf Atom | Node Operator [MTree]
@@ -39,8 +39,9 @@ hasOperator (Node op _) op' = op == op'
 hasOperator _ _             = False
 
 isLeaf :: MTree -> Bool 
-isLeaf (Leaf _) = True 
-isLeaf _        = False
+isLeaf (Leaf _)          = True 
+isLeaf (Node Negate [n]) = isLeaf n
+isLeaf _                 = False
 
 splitAtOp :: [MTree] -> Operator -> ([MTree],[MTree]) 
 splitAtOp [] _      = ([],[]) 

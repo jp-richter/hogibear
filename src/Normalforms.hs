@@ -1,7 +1,6 @@
 module Normalforms (toNNF, toDNF, toCNF, isHornForm, toImplicationForm) where
 
 import Prelude hiding (negate) 
-import Parser
 import MTree
 
 {-
@@ -18,17 +17,24 @@ import MTree
 -}
 
 toNNF :: MTree -> MTree 
-toNNF = dissolveNegation . dissolveImplication . dissolveEquivalence
+toNNF = dissolveBrackets .
+        dissolveNegation . 
+        dissolveImplication . 
+        dissolveEquivalence
 
 toDNF :: MTree -> MTree 
-toDNF n = if isDNF n then n; 
-    else if isNNF n then toDNF $ pullOutOr n; 
-    else toDNF $ toNNF n 
+toDNF = toDNF' . dissolveBrackets where 
+    toDNF' n 
+        | isDNF n   = n 
+        | isNNF n   = toDNF $ pullOutOr n 
+        | otherwise = toDNF' $ toNNF n
 
 toCNF :: MTree -> MTree 
-toCNF n = if isCNF n then n; 
-    else if isNNF n then toCNF $ pullOutAnd n; 
-    else toCNF $ toNNF n
+toCNF = toCNF' . dissolveBrackets where 
+    toCNF' n 
+        | isCNF n   = n 
+        | isNNF n   = toCNF $ pullOutAnd n
+        | otherwise = toCNF' $ toNNF n 
 
 isHornForm :: MTree -> Bool
 isHornForm (Node And ns) = maximum (map f ns) <= 1 where 
@@ -42,7 +48,7 @@ isHornForm _             = False
 
 toImplicationForm :: MTree -> MTree
 toImplicationForm (Node And ns) = Node And $ map ressolveImplication ns
-toImplicationForm n             = toImplicationForm $ toCNF $ toNNF n
+--toImplicationForm n             = toImplicationForm $ toCNF $ toNNF n
 
 {-
     Convencience Functions
@@ -54,14 +60,18 @@ isNNF (Node Negate [n]) = isLeaf n
 isNNF (Node _ ns)       = and $ map isNNF ns 
 
 isDNF :: MTree -> Bool 
-isDNF (Leaf l)      = True 
-isDNF (Node And ns) = and $ map (\x -> (isDisjunction x) && (isDNF x)) ns 
-isDNF (Node _ ns)   = and $ map isDNF ns 
+isDNF (Leaf l)         = True 
+isDNF (Node And ns)    = and $ map isLeaf ns
+isDNF (Node Or ns)     = and $ map isDNF ns 
+isDNF (Node Negate ns) = and $ map isDNF ns 
+isDNF (Node _ _)       = False
 
 isCNF :: MTree -> Bool 
-isCNF (Leaf l)      = True 
-isCNF (Node Or ns)  = and $ map (\x -> (isConjunction x) && (isCNF x)) ns  
-isCNF (Node _ ns)   = and $ map isCNF ns 
+isCNF (Leaf l)         = True 
+isCNF (Node Or ns)     = and $ map isLeaf ns  
+isCNF (Node And ns)    = and $ map isCNF ns 
+isCNF (Node Negate ns) = and $ map isCNF ns 
+isCNF (Node _ _)       = False
 
 allNegatives :: [MTree] -> [MTree]
 allNegatives = filter (not . isPositive)
@@ -119,12 +129,11 @@ dissolveNegation (Node Negate [(Node Or ns)])      =
 dissolveNegation (Node Negate [(Node Negate [n])]) = n 
 dissolveNegation n                                 = n 
 
--- falsch! hier wird die implikationsregel nicht beachtet
 ressolveImplication :: MTree -> MTree 
 ressolveImplication (Node Or ns) = 
     let premise   = if (length $ allNegatives ns) == 0 
                         then Leaf (Val True); 
-                    else Node And $ allNegatives ns 
+                    else Node And $ map negate $ allNegatives ns
         conclusio = if (length $ allPositives ns) == 0 
                         then Leaf (Val False); 
                     else Node And $ allPositives ns 

@@ -6,7 +6,11 @@ import MTree
 hornSatisfiable :: MTree -> [String]
 hornSatisfiable = (markAlg []) . toImplicationForm
 
---renamableHornSat :: MTree -> [(String, String)] test
+--renamableHornSat :: MTree -> [(String, String)] 
+
+{-
+    Horn Satisiability Algorithm
+-}
 
 markAlg :: [String] -> MTree -> [String] 
 markAlg vs n@(Node And ns) 

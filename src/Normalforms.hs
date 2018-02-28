@@ -35,15 +35,10 @@ toCNF = toCNF' . dissolveBrackets where
         | otherwise = toCNF' $ toNNF n 
 
 isHornForm :: MTree -> Bool
-isHornForm (Node And ns) = maximum (map f ns) <= 1 where 
-    f (Leaf (Val False)) = 0
-    f (Node Negate n)    = 0
-    f (Leaf (Val True))  = 1
-    f (Leaf (Var _))     = 1
-    f (Node Or (n:ns))   = (f n) + (f (Node Or ns))
-    f (Node Impl [m,n])  = length $ children n
-    f _                  = 2 -- not valid
-isHornForm _             = False
+isHornForm n@(Node And ns)  = countPositives n <= 1  
+isHornForm n@(Node Or ns)   = countPositives n <= 1  
+isHornForm n@(Node Impl ns) = countPositives n <= 1  
+isHornForm _                = False
 
 toImplicationForm :: MTree -> MTree
 toImplicationForm = toImplicationForm' . dissolveBrackets . toCNF . toNNF where 
@@ -88,6 +83,14 @@ positiveLeaf (Leaf (Val True))  = True
 positiveLeaf (Leaf (Val False)) = False 
 positiveLeaf (Leaf _ )          = True
 positiveLeaf (Node Negate [n])  = not $ positiveLeaf n 
+
+countPositives :: MTree -> Int 
+countPositives (Leaf (Val False)) = 0
+countPositives (Node Negate n)    = 0
+countPositives (Leaf (Val True))  = 1
+countPositives (Leaf (Var _))     = 1
+countPositives (Node Impl [m,n])  = length $ children n
+countPositives (Node _ ns)        = sum $ map countPositives ns
 
 {-
     Tree Transforming Functions

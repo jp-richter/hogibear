@@ -1,20 +1,12 @@
-module MTree (MTree(..), 
-              Atom(..), 
-              Operator(..),
-              testnodes,
-              isLeaf,
-              children,
-              hasOperator,
-              isConjunction,
-              isDisjunction,
-              splitAtOp) where 
+module MTree (Atom(..), Operator(..), MTree(..), children, hasOp, isLeaf, 
+    hasOnlyLeaf, isOr, isAnd, splitAtOp) where 
 
 {-
     Author          Jan Richter
     Date            27.02.2018
     Description     This module provides a tree for propositional logic 
                     expressions, with simple functions to manipulate and 
-                    read its nodes. testnodes is for testing purposes.
+                    read its nodes. 
 -}
 
 {-
@@ -34,62 +26,63 @@ children :: MTree -> [MTree]
 children n@(Leaf _)  = []
 children (Node _ ns) = ns
 
-hasOperator :: MTree -> Operator -> Bool
-hasOperator (Node op _) op' = op == op' 
-hasOperator _ _             = False
+hasOp :: MTree -> Operator -> Bool
+hasOp (Node op _) op' = op == op' 
+hasOp _ _             = False
 
 isLeaf :: MTree -> Bool 
 isLeaf (Leaf _)          = True 
-isLeaf (Node Negate [n]) = isLeaf n
 isLeaf _                 = False
 
+hasOnlyLeaf :: MTree -> Bool 
+hasOnlyLeaf (Leaf _ )         = True 
+hasOnlyLeaf (Node Negate [n]) = hasOnlyLeaf n 
+hasOnlyLeaf _                 = False
+
 splitAtOp :: [MTree] -> Operator -> ([MTree],[MTree]) 
-splitAtOp [] _      = ([],[]) 
-splitAtOp (n:ns) op = case n of 
-    _ | hasOperator n op -> ([n], ns)
-      | otherwise        -> (fst $ splitAtOp ns op
-                            , n:(snd $ splitAtOp ns op))
+splitAtOp [] _   = ([],[]) 
+splitAtOp (n:ns) op  
+    | hasOp n op = ([n], ns)
+    | otherwise  = (fst $ splitAtOp ns op, n:(snd $ splitAtOp ns op))
 
-isDisjunction :: MTree -> Bool 
-isDisjunction (Node Or _) = True 
-isDisjunction _           = False
+isOr :: MTree -> Bool 
+isOr (Node Or _) = True 
+isOr _           = False
 
-isConjunction :: MTree -> Bool
-isConjunction (Node And _) = True 
-isConjunction _            = False
+isAnd :: MTree -> Bool
+isAnd (Node And _) = True 
+isAnd _            = False
 
 {-
     Tree Visualization
 -}
 
 instance Show MTree where
-    show t = show $ treeToString t
+    show t = show $ tree t
 
-atomToString :: Atom -> String 
-atomToString (Val True)  = "True"
-atomToString (Val False) = "False"
-atomToString (Var s)     = s
+atom :: Atom -> String 
+atom (Val True)  = "True"
+atom (Val False) = "False"
+atom (Var s)     = s
 
-opToString :: Operator -> String 
-opToString Negate = "!"
-opToString And    = "&"
-opToString Or     = "|"
-opToString Impl   = "->"
-opToString Equiv  = "<->"
+operator :: Operator -> String 
+operator Negate = "!"
+operator And    = "&"
+operator Or     = "|"
+operator Impl   = "->"
+operator Equiv  = "<->"
 
-treeToString :: MTree -> String 
-treeToString (Leaf a)          = atomToString a 
-treeToString (Node Negate [n]) = "!" ++ (treeToString n) 
-treeToString (Node op (n:ns))  = foldl (\x y -> 
-    if isLeaf y then x ++ " " ++ (opToString op) ++ " " ++ treeToString y
-    else x ++ " " ++ (opToString op) ++ " (" ++ (treeToString y) ++ ")") 
-    (f n) ns where 
-        f n = if isLeaf n then treeToString n
-              else "(" ++ (treeToString n) ++ ")"
+tree :: MTree -> String 
+tree (Leaf a)          = atom a 
+tree (Node Negate [n]) = "!" ++ (tree n) 
+tree (Node op (n:ns))  = (first n) ++ (concatMap (rest "" op) ns)
 
-testnodes :: MTree -> String 
-testnodes (Leaf a) = atomToString a 
-testnodes (Node op ns) = 
-    opToString op ++ " (" ++ 
-    (foldl (\x y -> x ++ " ," ++ testnodes y) "" ns) 
-    ++ ")"
+first :: MTree -> String 
+first n 
+    | hasOnlyLeaf n = tree n 
+    | otherwise     = "(" ++ (tree n) ++ ")"
+
+rest :: String -> Operator -> MTree -> String 
+rest s op n 
+    | hasOnlyLeaf n = s ++ " " ++ (operator op) ++ " " ++ (tree n)
+    | otherwise     = s ++ " " ++ (operator op) ++ " (" ++ (tree n) ++ ")"

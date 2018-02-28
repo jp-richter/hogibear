@@ -9,7 +9,7 @@ import MTree
     Description     This module provides functions to transform MTrees into 
                     normal forms. 
 
-    TODO alles überarbeiten und lesbarer machen; von aussagenlogik abstrahieren
+    TODO aussagenlogik abstrahieren
 -}
 
 {-
@@ -61,14 +61,14 @@ isNNF (Node _ ns)       = and $ map isNNF ns
 
 isDNF :: MTree -> Bool 
 isDNF (Leaf l)         = True 
-isDNF (Node And ns)    = and $ map isLeaf ns
+isDNF (Node And ns)    = and $ map hasOnlyLeaf ns
 isDNF (Node Or ns)     = and $ map isDNF ns 
 isDNF (Node Negate ns) = and $ map isDNF ns 
 isDNF (Node _ _)       = False
 
 isCNF :: MTree -> Bool 
 isCNF (Leaf l)         = True 
-isCNF (Node Or ns)     = and $ map isLeaf ns  
+isCNF (Node Or ns)     = and $ map hasOnlyLeaf ns  
 isCNF (Node And ns)    = and $ map isCNF ns 
 isCNF (Node Negate ns) = and $ map isCNF ns 
 isCNF (Node _ _)       = False
@@ -143,7 +143,7 @@ ressolveImplication (Node Or ns) =
 pullOutOr :: MTree -> MTree
 pullOutOr n@(Leaf _)      = n
 pullOutOr n@(Node And ns) = 
-    if not $ and $ map (flip hasOperator And) ns 
+    if not $ and $ map (flip hasOp And) ns 
         then let (Node And ns) = dissolveBrackets n
                  disjunction   = head $ fst $ splitAtOp ns Or 
                  rest          = snd $ splitAtOp ns Or
@@ -159,7 +159,7 @@ pullOutOr (Node op ns)     = Node op $ map pullOutOr ns
 pullOutAnd :: MTree -> MTree 
 pullOutAnd n@(Leaf _)     = n
 pullOutAnd n@(Node Or ns) = 
-    if not $ or $ map (flip hasOperator Or) ns 
+    if not $ or $ map (flip hasOp Or) ns 
         then let (Node Or ns)  = dissolveBrackets n
                  conjunction   = head $ fst $ splitAtOp ns And 
                  rest          = snd $ splitAtOp ns And
@@ -171,10 +171,11 @@ pullOutAnd n@(Node Or ns) =
     else Node Or $ map pullOutAnd ns
 pullOutAnd (Node op ns)   = Node op $ map pullOutAnd ns
 
--- dissolves redundant brackets
 dissolveBrackets :: MTree -> MTree 
-dissolveBrackets n@(Leaf _)       = n 
-dissolveBrackets (Node op (n:ns)) = 
-    if hasOperator n op 
-        then dissolveBrackets (Node op $ ns ++ (children n))
-    else Node op $ n:(map dissolveBrackets ns)
+dissolveBrackets n@(Leaf _)    = n 
+dissolveBrackets (Node op [n])  
+    | hasOp n op = dissolveBrackets $ Node op $ children n 
+    | otherwise        = Node op $ [dissolveBrackets n]
+dissolveBrackets (Node op (n:ns)) 
+    | hasOp n op = dissolveBrackets $ Node op $ ns ++ (children n)
+    | otherwise        = Node op $ n:(map dissolveBrackets ns)
